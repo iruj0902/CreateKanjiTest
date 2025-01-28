@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>漢字テスト作成ツール</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .file-info-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .file-info-container label {
+            margin: 0;
+        }
+        .file-info-container input[type="text"] {
+            flex-grow: 1;
+        }
+        .checkbox-group {
+            text-align: left;
+            margin: 20px 0;
+        }
+        .checkbox-group h3 {
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin: 5px 0;
+        }
+        .row-count {
+            text-align: left;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>漢字テスト作成ツール</h1>
+        <div class="file-info-container">
+            <button id="fileUploadButton">ファイルを選択</button>
+            <label for="fileName">ファイル名:</label>
+            <input type="text" id="fileName" readonly />
+        </div>
+        <input type="file" id="fileInput" style="display: none;" accept=".xls,.xlsx" />
+        <div id="checkboxContainer"></div>
+        <div class="row-count">
+            <p>全体の行数: <span id="totalRows">0</span></p>
+            <p id="option1CountText">選択行数 (Option1): 0</p>
+            <p id="option2CountText">選択行数 (Option2): 0</p>
+        </div>
+        <button id="generatePdfButton">テスト作成</button>
+    </div>
+
+    <script>
+        const fileUploadButton = document.getElementById("fileUploadButton");
+        const fileInput = document.getElementById("fileInput");
+        const fileNameInput = document.getElementById("fileName");
+        const checkboxContainer = document.getElementById("checkboxContainer");
+        const generatePdfButton = document.getElementById("generatePdfButton");
+
+        let rows = []; // グローバル変数として行データを保持
+        let option1Items = []; // Option1のユニークアイテム
+        let option2Items = []; // Option2のユニークアイテム
+        let option1Selected = new Set(); // 選択されたOption1のアイテム
+        let option2Selected = new Set(); // 選択されたOption2のアイテム
+
+        fileUploadButton.addEventListener("click", () => fileInput.click());
+
+        fileInput.addEventListener("change", (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                fileNameInput.value = file.name;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    processExcelData(jsonData);
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        });
+
+        function processExcelData(data) {
+            if (data.length === 0) {
+                checkboxContainer.textContent = "データが空です。";
+                return;
+            }
+
+            // ヘッダーとデータ部分を分割
+            const headers = data[0];
+            rows = data.slice(1).map(row => ({
+                Sentence: row[1] || "",
+                Option1: row[4] || "",
+                Option2: row[5] || "",
+            }));
+
+            // 各オプション列のタイトル
+            const option1Header = headers[4] || "Option1";
+            const option2Header = headers[5] || "Option2";
+
+            // 各オプションのユニーク値を取得
+            option1Items = [...new Set(rows.map(row => row.Option1))].filter(Boolean).sort();
+            option2Items = [...new Set(rows.map(row => row.Option2))].filter(Boolean).sort();
+
+            // 初期化とチェックボックス生成
+            checkboxContainer.innerHTML = "";
+            option1Selected = new Set(option1Items);
+            option2Selected = new Set(option2Items);
+            generateCheckboxes(option1Header, option1Items, "Option1");
+            generateCheckboxes(option2Header, option2Items, "Option2");
+
+            // 初期状態の行数を更新
+            updateRowCounts();
+            updateCheckboxCounts();
+        }
+
+        function generateCheckboxes(headerText, items, optionKey) {
+            const group = document.createElement("div");
+            group.className = "checkbox-group";
+
+            const heading = document.createElement("h3");
+            heading.textContent = headerText;
+            group.appendChild(heading);
+
+            items.forEach(item => {
+                const label = document.createElement("label");
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.value = item;
+                checkbox.dataset.optionKey = optionKey; // どのオプションに属するかを設定
+                checkbox.checked = true; // 初期状態は選択
+
+                label.appendChild(checkbox);
+                label.append(` ${item}`);
+                group.appendChild(label);
+
+                checkbox.addEventListener("change", () => {
+                    if (checkbox.checked) {
+                        if (optionKey === "Option1") {
+                            option1Selected.add(item);
+                        } else {
+                            option2Selected.add(item);
+                        }
+                    } else {
+                        if (optionKey === "Option1") {
+                            option1Selected.delete(item);
+                        } else {
+                            option2Selected.delete(item);
+                        }
+                    }
+                    updateRowCounts();
+                    updateCheckboxCounts();
+                    logMatchingRows(); // AND 条件を満たす行をログ出力
+                });
+            });
+
+            checkboxContainer.appendChild(group);
+        }
+
+        function updateRowCounts() {
+            const totalRowsCount = rows.length;
+            const andConditionCount = rows.filter(row => 
+                option1Selected.has(row.Option1) && option2Selected.has(row.Option2)
+            ).length;
+
+            document.getElementById("totalRows").textContent = totalRowsCount;
+            document.getElementById("option1CountText").textContent = `選択行数 (Option1): ${option1Selected.size}`;
+            document.getElementById("option2CountText").textContent = `選択行数 (Option2): ${option2Selected.size}`;
+        }
+
+        function updateCheckboxCounts() {
+            checkboxContainer.querySelectorAll("input[type='checkbox']").forEach(checkbox => {
+                const item = checkbox.value;
+                const optionKey = checkbox.dataset.optionKey;
+                const selectedRowsCount = rows.filter(row => 
+                    (optionKey === "Option1" ? row.Option1 === item : row.Option2 === item) &&
+                    option1Selected.has(row.Option1) &&
+                    option2Selected.has(row.Option2)
+                ).length;
+
+                const label = checkbox.parentNode;
+                label.lastChild.textContent = ` ${item} (${selectedRowsCount})`;
+            });
+        }
+
+        function logMatchingRows() {
+            const matchingRows = rows.filter(row => 
+                option1Selected.has(row.Option1) && option2Selected.has(row.Option2)
+            );
+            console.log("AND条件を満たす行:", matchingRows);
+        }
+
+        generatePdfButton.addEventListener("click", () => {
+            const selectedRows = rows.filter(row => 
+            option1Selected.has(row.Option1) && option2Selected.has(row.Option2)
+            );
+
+            if (selectedRows.length === 0) {
+            alert("選択された行がありません。");
+            return;
+        }
+        let sentences = selectedRows.map(row => row.Sentence);
+
+        if (sentences.length <= 14) {
+            // 14行以下なら空文字列を追加して14個にする
+            while (sentences.length < 14) {
+            sentences.push("");
+            }
+        } else {
+            // 14行より多い場合はランダムに14個選ぶ
+            sentences = sentences.sort(() => Math.random() - 0.5).slice(0, 14);
+            console.log(sentences);
+        }
+        // B列データを取得してエンコード
+        const encodedData = encodeURIComponent(JSON.stringify(sentences));
+
+        // TestTemplate.html を新しいウィンドウで開き、データを渡す
+        const newWindow = window.open(`TestTemplate.html?data=${encodedData}`, '_blank');
+        if (!newWindow) {
+            alert("ポップアップをブロックしています。設定を確認してください。");
+        }
+    });
+    </script>
+</body>
+</html>
