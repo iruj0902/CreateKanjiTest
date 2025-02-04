@@ -36,11 +36,12 @@
             display: block;
             margin: 5px 0;
         }
-        .row-count {
-            text-align: left;
-            margin-top: 20px;
-            font-size: 14px;
+        .controls {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
         }
+
     </style>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
@@ -54,13 +55,13 @@
             <input type="text" id="fileName" readonly />
         </div>
         <input type="file" id="fileInput" style="display: none;" accept=".xls,.xlsx" />
-        <div id="checkboxContainer"></div>
-        <div class="row-count">
-            <p>全体の行数: <span id="totalRows">0</span></p>
-            <p id="option1CountText">選択行数 (Option1): 0</p>
-            <p id="option2CountText">選択行数 (Option2): 0</p>
+        <div class="controls">
+            <button id="generatePdfButton">テスト作成</button>
+            <label>
+                <input type="checkbox" id="includeAnswers" checked> 下に答えを記載
+            </label>
         </div>
-        <button id="generatePdfButton">テスト作成</button>
+        <div id="checkboxContainer"></div>
     </div>
 
     <script>
@@ -69,6 +70,10 @@
         const fileNameInput = document.getElementById("fileName");
         const checkboxContainer = document.getElementById("checkboxContainer");
         const generatePdfButton = document.getElementById("generatePdfButton");
+
+        fileInput.addEventListener('change', () => {
+            generatePdfButton.disabled = false;
+        });
 
         let rows = []; // グローバル変数として行データを保持
         let option1Items = []; // Option1のユニークアイテム
@@ -104,7 +109,10 @@
             // ヘッダーとデータ部分を分割
             const headers = data[0];
             rows = data.slice(1).map(row => ({
+                Idx: row[0] || "x",
                 Sentence: row[1] || "",
+                Answer: row[2] || "",
+                Correctness: row[3] || "",
                 Option1: row[4] || "",
                 Option2: row[5] || "",
             }));
@@ -125,7 +133,6 @@
             generateCheckboxes(option2Header, option2Items, "Option2");
 
             // 初期状態の行数を更新
-            updateRowCounts();
             updateCheckboxCounts();
         }
 
@@ -163,26 +170,12 @@
                             option2Selected.delete(item);
                         }
                     }
-                    updateRowCounts();
                     updateCheckboxCounts();
-                    logMatchingRows(); // AND 条件を満たす行をログ出力
                 });
             });
 
             checkboxContainer.appendChild(group);
         }
-
-        function updateRowCounts() {
-            const totalRowsCount = rows.length;
-            const andConditionCount = rows.filter(row => 
-                option1Selected.has(row.Option1) && option2Selected.has(row.Option2)
-            ).length;
-
-            document.getElementById("totalRows").textContent = totalRowsCount;
-            document.getElementById("option1CountText").textContent = `選択行数 (Option1): ${option1Selected.size}`;
-            document.getElementById("option2CountText").textContent = `選択行数 (Option2): ${option2Selected.size}`;
-        }
-
         function updateCheckboxCounts() {
             checkboxContainer.querySelectorAll("input[type='checkbox']").forEach(checkbox => {
                 const item = checkbox.value;
@@ -198,43 +191,54 @@
             });
         }
 
-        function logMatchingRows() {
-            const matchingRows = rows.filter(row => 
-                option1Selected.has(row.Option1) && option2Selected.has(row.Option2)
-            );
-            console.log("AND条件を満たす行:", matchingRows);
-        }
-
         generatePdfButton.addEventListener("click", () => {
+            const answersIncluded = includeAnswers.checked;
+            // 新しいウィンドウに渡すパラメータ
+            const params = new URLSearchParams();
+            params.set('includeAnswers', answersIncluded);
+
             const selectedRows = rows.filter(row => 
             option1Selected.has(row.Option1) && option2Selected.has(row.Option2)
             );
-
             if (selectedRows.length === 0) {
-            alert("選択された行がありません。");
-            return;
-        }
-        let sentences = selectedRows.map(row => row.Sentence);
-
-        if (sentences.length <= 14) {
-            // 14行以下なら空文字列を追加して14個にする
-            while (sentences.length < 14) {
-            sentences.push("");
+                alert("選択された行がありません。");
+                return;
             }
-        } else {
-            // 14行より多い場合はランダムに14個選ぶ
-            sentences = sentences.sort(() => Math.random() - 0.5).slice(0, 14);
-            console.log(sentences);
-        }
-        // B列データを取得してエンコード
-        const encodedData = encodeURIComponent(JSON.stringify(sentences));
+            // 配列を最大14までにしてシャッフル
+            outputRows = shuffleArray(selectedRows.slice(0,14));
+            let index = outputRows.map(row => row.Idx);
+            let sentences = outputRows.map(row => row.Sentence);
+            let answers = outputRows.map(row => row.Answer);
+            if (outputRows.length <= 14) {
+                // 14行以下なら空文字列を追加して14個にする
+                while (index.length < 14) {
+                    index.push("");
+                    sentences.push("");
+                    answers.push("");
+                }
+            }
+            // エンコード
+            const encodedIndexData = encodeURIComponent(JSON.stringify(index));
+            params.set('index', encodedIndexData);
+            const encodedSentenceData = encodeURIComponent(JSON.stringify(sentences));
+            params.set('sentence', encodedSentenceData);
+            const encodedAnswerData = encodeURIComponent(JSON.stringify(answers));
+            params.set('answer', encodedAnswerData);
 
-        // TestTemplate.html を新しいウィンドウで開き、データを渡す
-        const newWindow = window.open(`TestTemplate.html?data=${encodedData}`, '_blank');
-        if (!newWindow) {
-            alert("ポップアップをブロックしています。設定を確認してください。");
+            // TestTemplate.html を新しいウィンドウで開き、データを渡す
+            const newWindow = window.open('TestTemplate.html?' + params.toString(), '_blank');
+            if (!newWindow) {
+                alert("ポップアップをブロックしています。設定を確認してください。");
+            }
+        });
+        function shuffleArray(array) {
+            let shuffled = array.slice(); // 元の配列を変更しないようコピー
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; // 要素を交換
+            }
+            return shuffled;
         }
-    });
     </script>
 </body>
 </html>

@@ -13,8 +13,6 @@
             box-sizing: border-box;
             font-family: Arial, sans-serif;
             display: flex;
-            /*align-items: center;
-            height: 100vh; */
             flex-direction: row; /* 水平方向に配置 */
             justify-content: space-between; /* 左右に分ける配置 */
         }
@@ -54,10 +52,11 @@
         }
         .empty-cell {
             border: 1px solid black;
+            font-size: 10px;
             flex: 1; /* 高さの比率を2:1に設定 */
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-end;
             box-sizing: border-box; /* 幅計算を正確にする */
             width: 100%;
             padding: 0;
@@ -78,7 +77,6 @@
             align-self: flex-start; /* 右寄せ */
             box-sizing: border-box;
         }
-
         .right-row {
             flex: 1;
             border: 1px solid black; /* 枠線 */
@@ -87,6 +85,12 @@
             align-items: center;
             box-sizing: border-box; /* 幅計算を正確にする */
             margin: 0; /* セル間の隙間をなくす */
+        }
+        .bottom-section {
+            flex: 1;
+            display: flex;
+            height: 5%;
+            align-self: flex-end;
         }
     </style>
 </head>
@@ -107,11 +111,17 @@
         <div class="right-row">得点</div>
         <div class="right-row"> </div>
     </div>
+    <!-- 答えのセクション -->
+    <div class="bottom-section">
+        <!-- JavaScriptで動的に内容を追加 -->
+    </div>
 
     <script>
         // URLパラメータからデータを取得
         const params = new URLSearchParams(window.location.search);
-        const data = JSON.parse(decodeURIComponent(params.get('data') || '[]'));
+        const index = JSON.parse(decodeURIComponent(params.get('index') || '[]'));
+        const sentence = JSON.parse(decodeURIComponent(params.get('sentence') || '[]'));
+        const answer = JSON.parse(decodeURIComponent(params.get('answer') || '[]'));
 
         // テーブルにデータを埋め込む
         const upperTable = document.getElementById('upperTable');
@@ -127,7 +137,7 @@
             cellDiv.className = 'cell';
 
             // データが存在すれば挿入、なければ空白
-            let cellText = data[columns - i - 1] || '';
+            let cellText = sentence[columns - i - 1] || '';
             if (cellText == '') {
                 cellDiv.textContent = `${upperPlaceholders.charAt(i)}`;
             } else if (cellText.includes('<') && cellText.includes('>')) {
@@ -142,14 +152,18 @@
                     cellDiv.appendChild(span);
                     if (textParts[1]) {
                         cellDiv.appendChild(document.createTextNode(textParts[1] + '。'));
+                    } else {
+                        cellDiv.appendChild(document.createTextNode('。'));
                     }
                 }
-            } else {
-                cellDiv.textContent = `${upperPlaceholders.charAt(i)}${cellText}。`;
             }
 
             const emptyCellDiv = document.createElement('div');
             emptyCellDiv.className = 'empty-cell';
+            let idxText = index[columns - i - 1] || '';
+            if (idxText != '') {
+                emptyCellDiv.textContent = `(${idxText})`;
+            }
 
             columnDiv.appendChild(cellDiv);
             columnDiv.appendChild(emptyCellDiv);
@@ -163,7 +177,7 @@
             const cellDiv = document.createElement('div');
             cellDiv.className = 'cell';
 
-            let cellText = data[columns * 2 - i - 1] || '';
+            let cellText = sentence[columns * 2 - i - 1] || '';
             if (cellText == '') {
                 cellDiv.textContent = `${lowerPlaceholders.charAt(i)}`;
             } else if (cellText.includes('<') && cellText.includes('>')) {
@@ -174,19 +188,23 @@
                     span.textContent = match[1]; // <>内の文字列
 
                     const textParts = cellText.split(/<.+?>/);
+                    console.log(textParts);
                     cellDiv.textContent = `${lowerPlaceholders.charAt(i)}${textParts[0]}`;
                     cellDiv.appendChild(span);
                     if (textParts[1]) {
                         cellDiv.appendChild(document.createTextNode(textParts[1] + '。'));
+                    } else {
+                        cellDiv.appendChild(document.createTextNode('。'));
                     }
                 }
-            } else {
-                cellDiv.textContent = `${lowerPlaceholders.charAt(i)}${cellText}。`;
             }
 
             const emptyCellDiv = document.createElement('div');
             emptyCellDiv.className = 'empty-cell';
-
+            let idxText = index[columns * 2 - i - 1] || '';
+            if (idxText != '') {
+                emptyCellDiv.textContent = `(${idxText})`;
+            }
             columnDiv.appendChild(cellDiv);
             columnDiv.appendChild(emptyCellDiv);
             lowerTable.appendChild(columnDiv);
