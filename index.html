@@ -196,7 +196,7 @@
             // 新しいウィンドウに渡すパラメータ
             const params = new URLSearchParams();
             params.set('includeAnswers', answersIncluded);
-
+            console.log(answersIncluded)
             const selectedRows = rows.filter(row => 
             option1Selected.has(row.Option1) && option2Selected.has(row.Option2)
             );

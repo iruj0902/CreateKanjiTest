@@ -4,95 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>テストテンプレート</title>
-    <style>
-        body {
-            width: 210mm; /* A4縦向き */
-            height: 297mm;
-            margin: 0;
-            padding: 10mm;
-            box-sizing: border-box;
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: row; /* 水平方向に配置 */
-            justify-content: space-between; /* 左右に分ける配置 */
-        }
-
-        .left-section {
-            width: 90%; /* 左の表エリア */
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-        .table {
-            display: flex;
-            flex-direction: row;
-            justify-content: flex-start; /* 左寄せ */
-            height: 48%; /* 表の高さを48%に */
-            margin-bottom: 4%;
-            border-collapse: collapse; /* セル間をくっつける */
-        }
-        .column {
-            display: flex;
-            flex-direction: column;
-            justify-content: stretch;
-            align-items: stretch; /* 列全体の幅を均等にする */
-            width: 14%; /* 各列の幅 (7列) */
-        }
-        .cell {
-            writing-mode: vertical-rl; /* 縦書きモード */
-            font-size: 17px;
-            border: 1px solid black;
-            flex: 2; /* 高さの比率を2:1に設定 */
-            display: flex;
-            align-items: center; /* テキストを左右の中央に揃える */
-            padding: 5px; /* 上部に余白を追加 */
-            box-sizing: border-box; /* 幅計算を正確にする */
-            width: 100%;
-            margin: 0;
-        }
-        .empty-cell {
-            border: 1px solid black;
-            font-size: 10px;
-            flex: 1; /* 高さの比率を2:1に設定 */
-            display: flex;
-            justify-content: center;
-            align-items: flex-end;
-            box-sizing: border-box; /* 幅計算を正確にする */
-            width: 100%;
-            padding: 0;
-            margin: 0;
-        }
-        .bold {
-            font-weight: bold;
-        }
-        .highlight {
-            border-right: 2px solid black;
-        }
-        .right-section {
-            width: 8%; /* 右の表エリア */
-            height: 30%; /* 高さを全体の30%に */
-            display: flex;
-            flex-direction: column;
-            justify-content: stretch; /* セルを均等に配置 */
-            align-self: flex-start; /* 右寄せ */
-            box-sizing: border-box;
-        }
-        .right-row {
-            flex: 1;
-            border: 1px solid black; /* 枠線 */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-sizing: border-box; /* 幅計算を正確にする */
-            margin: 0; /* セル間の隙間をなくす */
-        }
-        .bottom-section {
-            flex: 1;
-            display: flex;
-            height: 5%;
-            align-self: flex-end;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="left-section">
@@ -112,13 +24,14 @@
         <div class="right-row"> </div>
     </div>
     <!-- 答えのセクション -->
-    <div class="bottom-section">
+    <div class="bottom-section" id="answerContainer">
         <!-- JavaScriptで動的に内容を追加 -->
     </div>
 
     <script>
         // URLパラメータからデータを取得
         const params = new URLSearchParams(window.location.search);
+        const includeAnswers = JSON.parse(decodeURIComponent(params.get('includeAnswers')));
         const index = JSON.parse(decodeURIComponent(params.get('index') || '[]'));
         const sentence = JSON.parse(decodeURIComponent(params.get('sentence') || '[]'));
         const answer = JSON.parse(decodeURIComponent(params.get('answer') || '[]'));
@@ -188,7 +101,6 @@
                     span.textContent = match[1]; // <>内の文字列
 
                     const textParts = cellText.split(/<.+?>/);
-                    console.log(textParts);
                     cellDiv.textContent = `${lowerPlaceholders.charAt(i)}${textParts[0]}`;
                     cellDiv.appendChild(span);
                     if (textParts[1]) {
@@ -208,6 +120,25 @@
             columnDiv.appendChild(cellDiv);
             columnDiv.appendChild(emptyCellDiv);
             lowerTable.appendChild(columnDiv);
+        }
+
+        // includeAndwers.checked
+        const answerContainer = document.getElementById('answerContainer');
+        if (includeAnswers) {
+            const answerDiv = document.createElement('div');
+            answerDiv.className = 'bottom-section';
+            //const answerLabel = document.createElement('bottom-label');
+            const answerLabel = document.createElement('bottom-label');
+            let answerText = '';
+            const holders = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭'];
+            for (let i = 0; i < answer.length; i++) {
+                answerText = `${answerText} ${holders[i]} ${answer[i]}`;
+            }
+            //answerLabel.appendChild(document.createTextNode('answer'));
+            answerLabel.textContent = answerText;
+            //answerLabel.appendChild(document.createTextNode(answerText));
+            answerDiv.appendChild(answerLabel);
+            answerContainer.appendChild(answerDiv);
         }
     </script>
 </body>
