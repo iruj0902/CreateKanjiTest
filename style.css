@@ -1,19 +1,41 @@
+@page {
+    /* A4縦向き */
+    width: 210mm; 
+    height: 297mm;
+    margin: 0mm;
+}
 body {
     /* A4縦向き */
     width: 210mm; 
     height: 297mm;
     margin: 0;
     padding: 10mm;
-    box-sizing: border-box;
     font-family: Arial, sans-serif;
-    display: flex;
-    flex-direction: row; /* 水平方向に配置 */
-    justify-content: space-between; /* 左右に分ける配置 */
+}
+.grid-container{
+    display: grid;
+    width: 100%;
+    height: 100%;
+    grid-template-columns: 8fr 1fr;
+    grid-template-rows: 18fr 1fr 1fr;
+    gap: 5px;
+}
+#gridLeft {
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
+}
+#gridRight {
+    grid-column: 2 / 3;
+    grid-row: 1 / 2;
+}
+#gridAnswer {
+    grid-column: 1 / 3;
+    grid-row: 3 / 3;
 }
 
 .left-section {
-    width: 90%; /* 左の表エリア */
-    height: 95%;
+    width: 100%; /* 左の表エリア */
+    height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -57,39 +79,24 @@ body {
     padding: 0;
     margin: 0;
 }
-.bold {
-    font-weight: bold;
-}
 .highlight {
     border-right: 2px solid black;
 }
 .right-section {
-    width: 8%; /* 右の表エリア */
+    width: 100%; /* 右の表エリア */
     height: 30%; /* 高さを全体の30%に */
     display: flex;
     flex-direction: column;
-    justify-content: stretch; /* セルを均等に配置 */
     align-self: flex-start; /* 右寄せ */
-    box-sizing: border-box;
 }
 .right-row {
-    flex: 1;
+    flex: 4;
     border: 1px solid black; /* 枠線 */
     display: flex;
-    justify-content: center;
-    align-items: center;
     box-sizing: border-box; /* 幅計算を正確にする */
     margin: 0; /* セル間の隙間をなくす */
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
 }
-.bottom-section {
-    display: flex;
-    position: absolute;
-    align-items: flex-end;
-    left: 10px;
-    width: 90%;
-    bottom: 2%;
-}
-.bottom-label {
-    font-size: 8px;
-    display: flex;
-}
+

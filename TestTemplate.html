@@ -7,25 +7,31 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="left-section">
-        <!-- 上段表 -->
-        <div class="table" id="upperTable">
+    <div class="grid-container">
+        <div class="grid_item" id="gridLeft">
+            <div class="left-section">
+                <!-- 上段表 -->
+                <div class="table" id="upperTable">
+                    <!-- JavaScriptで動的に内容を追加 -->
+                </div>
+                <!-- 下段表 -->
+                <div class="table" id="lowerTable">
+                    <!-- JavaScriptで動的に内容を追加 -->
+                </div>
+            </div>
+        </div>
+        <div class="grid_item" id="gridRight">
+            <div class="right-section">
+                <div class="right-row">日付</div>
+                <div class="right-row"> </div>
+                <div class="right-row">得点</div>
+                <div class="right-row"> </div>
+            </div>
+        </div>
+        <!-- 答えのセクション -->
+        <div class="grid_item" id="gridAnswer">
             <!-- JavaScriptで動的に内容を追加 -->
         </div>
-        <!-- 下段表 -->
-        <div class="table" id="lowerTable">
-            <!-- JavaScriptで動的に内容を追加 -->
-        </div>
-    </div>
-    <div class="right-section">
-        <div class="right-row">日付</div>
-        <div class="right-row"> </div>
-        <div class="right-row">得点</div>
-        <div class="right-row"> </div>
-    </div>
-    <!-- 答えのセクション -->
-    <div class="bottom-section" id="answerContainer">
-        <!-- JavaScriptで動的に内容を追加 -->
     </div>
 
     <script>
@@ -123,22 +129,14 @@
         }
 
         // includeAndwers.checked
-        const answerContainer = document.getElementById('answerContainer');
         if (includeAnswers) {
-            const answerDiv = document.createElement('div');
-            answerDiv.className = 'bottom-section';
-            //const answerLabel = document.createElement('bottom-label');
-            const answerLabel = document.createElement('bottom-label');
+            const answerContainer = document.getElementById('gridAnswer');
             let answerText = '';
             const holders = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭'];
             for (let i = 0; i < answer.length; i++) {
                 answerText = `${answerText} ${holders[i]} ${answer[i]}`;
             }
-            //answerLabel.appendChild(document.createTextNode('answer'));
-            answerLabel.textContent = answerText;
-            //answerLabel.appendChild(document.createTextNode(answerText));
-            answerDiv.appendChild(answerLabel);
-            answerContainer.appendChild(answerDiv);
+            answerContainer.textContent = answerText;
         }
     </script>
 </body>
