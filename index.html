@@ -56,7 +56,7 @@
         </div>
         <input type="file" id="fileInput" style="display: none;" accept=".xls,.xlsx" />
         <div class="controls">
-            <button id="generatePdfButton">テスト作成</button>
+            <button id="generateTestButton">テスト作成</button>
             <label>
                 <input type="checkbox" id="includeAnswers" checked> 下に答えを記載
             </label>
@@ -69,17 +69,26 @@
         const fileInput = document.getElementById("fileInput");
         const fileNameInput = document.getElementById("fileName");
         const checkboxContainer = document.getElementById("checkboxContainer");
-        const generatePdfButton = document.getElementById("generatePdfButton");
+        const generateTestButton = document.getElementById("generateTestButton");
 
         fileInput.addEventListener('change', () => {
-            generatePdfButton.disabled = false;
+            generateTestButton.disabled = false;
         });
 
         let rows = []; // グローバル変数として行データを保持
         let option1Items = []; // Option1のユニークアイテム
         let option2Items = []; // Option2のユニークアイテム
+        let optionCrctItemValues = [] // OptionCrctのユニークアイテム　(crctItemMap.value)
         let option1Selected = new Set(); // 選択されたOption1のアイテム
         let option2Selected = new Set(); // 選択されたOption2のアイテム
+        let optionCrctValueSelected = new Set(); // 選択されたOptionCrctのアイテム
+        
+        // OptionCrctの key:チェックボックス表記 value:取り組み結果のカテゴリ
+        let crctItemMap = new Map();
+        crctItemMap.set("結果なし", "empty");
+        crctItemMap.set("最新１回の結果が間違い (...x)", "lastX");
+        crctItemMap.set("最新２回の結果がすべて正解でない (oのみまたは...xo)", "lastXO");
+        crctItemMap.set("その他", "others");
 
         fileUploadButton.addEventListener("click", () => fileInput.click());
 
@@ -100,6 +109,19 @@
             }
         });
 
+        // 取り組み結果をカテゴリに分類
+        function classifyCrct(value) {
+            if (!value) {
+                return "empty";
+            } else if (value.endsWith("x")) {
+                return "lastX";
+            } else if (value === "o" || value.endsWith("xo")) {
+                return "lastXO";
+            } else {
+                return "others";
+            }
+        }
+
         function processExcelData(data) {
             if (data.length === 0) {
                 checkboxContainer.textContent = "データが空です。";
@@ -112,23 +134,28 @@
                 Idx: row[0] || "x",
                 Sentence: row[1] || "",
                 Answer: row[2] || "",
-                Correctness: row[3] || "",
+                Correctness: classifyCrct(row[3] || ""),
                 Option1: row[4] || "",
                 Option2: row[5] || "",
             }));
 
             // 各オプション列のタイトル
+            const optionCrctHeader = headers[3] || "取り組み結果";
             const option1Header = headers[4] || "Option1";
             const option2Header = headers[5] || "Option2";
 
+
             // 各オプションのユニーク値を取得
+            optionCrctItemValues = [...new Set(rows.map(row => row.Correctness))].filter(Boolean).sort();
             option1Items = [...new Set(rows.map(row => row.Option1))].filter(Boolean).sort();
             option2Items = [...new Set(rows.map(row => row.Option2))].filter(Boolean).sort();
 
             // 初期化とチェックボックス生成
             checkboxContainer.innerHTML = "";
+            optionCrctValueSelected = new Set(crctItemMap.values());
             option1Selected = new Set(option1Items);
             option2Selected = new Set(option2Items);
+            generateCheckboxes(optionCrctHeader, crctItemMap.keys(), "Crct");
             generateCheckboxes(option1Header, option1Items, "Option1");
             generateCheckboxes(option2Header, option2Items, "Option2");
 
@@ -160,14 +187,18 @@
                     if (checkbox.checked) {
                         if (optionKey === "Option1") {
                             option1Selected.add(item);
-                        } else {
+                        } else if (optionKey === "Option2") {
                             option2Selected.add(item);
+                        } else { // optionKey === "Crct"
+                            optionCrctValueSelected.add(crctItemMap.get(item));
                         }
                     } else {
                         if (optionKey === "Option1") {
                             option1Selected.delete(item);
-                        } else {
+                        } else if (optionKey === "Option2") {
                             option2Selected.delete(item);
+                        } else {
+                            optionCrctValueSelected.delete(crctItemMap.get(item));                            
                         }
                     }
                     updateCheckboxCounts();
@@ -181,9 +212,10 @@
                 const item = checkbox.value;
                 const optionKey = checkbox.dataset.optionKey;
                 const selectedRowsCount = rows.filter(row => 
-                    (optionKey === "Option1" ? row.Option1 === item : row.Option2 === item) &&
+                    (optionKey === "Option1" ? row.Option1 === item : (optionKey === "Option2" ? row.Option2 === item : row.Correctness === crctItemMap.get(item))) &&
                     option1Selected.has(row.Option1) &&
-                    option2Selected.has(row.Option2)
+                    option2Selected.has(row.Option2) &&
+                    optionCrctValueSelected.has(row.Correctness)
                 ).length;
 
                 const label = checkbox.parentNode;
@@ -191,14 +223,14 @@
             });
         }
 
-        generatePdfButton.addEventListener("click", () => {
+        generateTestButton.addEventListener("click", () => {
             const answersIncluded = includeAnswers.checked;
             // 新しいウィンドウに渡すパラメータ
             const params = new URLSearchParams();
             params.set('includeAnswers', answersIncluded);
             console.log(answersIncluded)
             const selectedRows = rows.filter(row => 
-            option1Selected.has(row.Option1) && option2Selected.has(row.Option2)
+            option1Selected.has(row.Option1) && option2Selected.has(row.Option2) && optionCrctValueSelected.has(row.Correctness)
             );
             if (selectedRows.length === 0) {
                 alert("選択された行がありません。");
