@@ -59,14 +59,14 @@
             let cellText = sentence[columns - i - 1] || '';
             if (cellText == '') {
                 cellDiv.textContent = `${upperPlaceholders.charAt(i)}`;
-            } else if (cellText.includes('<') && cellText.includes('>')) {
-                const match = cellText.match(/<(.+?)>/);
+            } else if (cellText.includes('{{') && cellText.includes('}}')) {
+                const match = cellText.match(/{{(.+?)}}/);
                 if (match) {
                     const span = document.createElement('span');
                     span.className = 'highlight';
                     span.textContent = match[1]; // <>内の文字列
 
-                    const textParts = cellText.split(/<.+?>/);
+                    const textParts = cellText.split(/{{.+?}}/);
                     cellDiv.textContent = `${upperPlaceholders.charAt(i)}${textParts[0]}`;
                     cellDiv.appendChild(span);
                     if (textParts[1]) {
@@ -99,14 +99,14 @@
             let cellText = sentence[columns * 2 - i - 1] || '';
             if (cellText == '') {
                 cellDiv.textContent = `${lowerPlaceholders.charAt(i)}`;
-            } else if (cellText.includes('<') && cellText.includes('>')) {
-                const match = cellText.match(/<(.+?)>/);
+            } else if (cellText.includes('{{') && cellText.includes('}}')) {
+                const match = cellText.match(/{{(.+?)}}/);
                 if (match) {
                     const span = document.createElement('span');
                     span.className = 'highlight';
                     span.textContent = match[1]; // <>内の文字列
 
-                    const textParts = cellText.split(/<.+?>/);
+                    const textParts = cellText.split(/{{.+?}}/);
                     cellDiv.textContent = `${lowerPlaceholders.charAt(i)}${textParts[0]}`;
                     cellDiv.appendChild(span);
                     if (textParts[1]) {
