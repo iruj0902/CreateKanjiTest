@@ -41,6 +41,11 @@
             align-items: center;
             margin-top: 10px;
         }
+        .id-include-container {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
 
     </style>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -61,6 +66,12 @@
                 <input type="checkbox" id="includeAnswers" checked> 下に答えを記載
             </label>
         </div>
+        <div class="id-include-container">
+            <input type="checkbox" id="includeIdCheckbox" checked>
+            <label for="includeIdCheckbox">このIDを優先する</label>
+            <input type="text" id="includeIdInput" placeholder="例: 1,2-5,8" />
+            <span id="errorMessage" style="color: red; font-size: 12px; display: none;">テキストボックスの内容が無効です</span>
+        </div>            
         <div id="checkboxContainer"></div>
     </div>
 
@@ -75,14 +86,38 @@
             generateTestButton.disabled = false;
         });
 
+        // チェックボックスと入力フィールドの要素
+        const includeIdCheckbox = document.getElementById("includeIdCheckbox");
+        const includeIdInput = document.getElementById("includeIdInput");
+        const errorMessage = document.getElementById("errorMessage");
+        
+        // チェックボックスの状態変更イベント
+        includeIdCheckbox.addEventListener("change", () => {
+            includeIdInput.disabled = !includeIdCheckbox.checked;
+            if (!includeIdCheckbox.checked) {
+                includeIdInput.value = ""; // チェック解除時にリセット
+                errorMessage.style.display = "none";
+            }
+        });
+
+        // 入力ボックスのバリデーション
+        includeIdInput.addEventListener("input", () => {
+            const validPattern = /^[0-9,\-]*$/; // 半角数字, カンマ, ハイフンのみ許可
+            if (!validPattern.test(includeIdInput.value)) {
+                errorMessage.style.display = "inline";
+            } else {
+                errorMessage.style.display = "none";
+            }
+        });
+
+        const max_test_count = 14; // 最大問題数
         let rows = []; // グローバル変数として行データを保持
         let option1Items = []; // Option1のユニークアイテム
         let option2Items = []; // Option2のユニークアイテム
-        let optionCrctItemValues = [] // OptionCrctのユニークアイテム　(crctItemMap.value)
         let option1Selected = new Set(); // 選択されたOption1のアイテム
         let option2Selected = new Set(); // 選択されたOption2のアイテム
         let optionCrctValueSelected = new Set(); // 選択されたOptionCrctのアイテム
-        
+
         // OptionCrctの key:チェックボックス表記 value:取り組み結果のカテゴリ
         let crctItemMap = new Map();
         crctItemMap.set("結果なし", "empty");
@@ -146,7 +181,6 @@
 
 
             // 各オプションのユニーク値を取得
-            optionCrctItemValues = [...new Set(rows.map(row => row.Correctness))].filter(Boolean).sort();
             option1Items = [...new Set(rows.map(row => row.Option1))].filter(Boolean).sort();
             option2Items = [...new Set(rows.map(row => row.Option2))].filter(Boolean).sort();
 
@@ -223,21 +257,65 @@
             });
         }
 
-        generateTestButton.addEventListener("click", () => {
-            const answersIncluded = includeAnswers.checked;
-            // 新しいウィンドウに渡すパラメータ
-            const params = new URLSearchParams();
-            params.set('includeAnswers', answersIncluded);
-            console.log(answersIncluded)
-            const selectedRows = rows.filter(row => 
-            option1Selected.has(row.Option1) && option2Selected.has(row.Option2) && optionCrctValueSelected.has(row.Correctness)
-            );
-            if (selectedRows.length === 0) {
-                alert("選択された行がありません。");
-                return;
+        // IDの入力を解析して配列に変換
+        function parseIdInput(idInput) {
+            let idSet = new Set(); // 重複を防ぐためのSetを使用
+            const parts = idInput.split(','); // カンマで分割
+
+            for (let part of parts) {
+                part = part.trim();
+                if (/^\d+$/.test(part)) {
+                    // 単一の数字
+                    idSet.add(parseInt(part, 10));
+                } else if (/^\d+\-\d+$/.test(part)) {
+                    // 範囲 (例: 5-7)
+                    const [start, end] = part.split('-').map(Number);
+                    if (start <= end) {
+                        for (let i = start; i <= end; i++) {
+                            idSet.add(i);
+                        }
+                    }
+                } else {
+                    return null; // 不正な入力がある場合
+                }
             }
-            // 配列を最大14までにしてシャッフル
-            outputRows = shuffleArray(selectedRows.slice(0,14));
+            return Array.from(idSet).sort((a, b) => a - b); // 重複を削除して配列化＆昇順ソート
+        }
+
+        generateTestButton.addEventListener("click", () => {
+            let outputRows;
+            let priorIds = null;
+            // 優先するIDを取得
+            if (includeIdCheckbox.checked && includeIdInput.value.trim() !== "") {
+                priorIds = parseIdInput(includeIdInput.value.trim());
+                if (!priorIds) {
+                    alert("IDの入力が無効です。半角数字, カンマ(,) , ハイフン(-) のみ使用できます。");
+                return;
+                }
+            }
+            console.log("取得したID:", priorIds); // 確認用
+
+            if (priorIds == null) { // priorIdなし
+                const selectedRows = rows.filter(row => 
+                    option1Selected.has(row.Option1) && option2Selected.has(row.Option2) && optionCrctValueSelected.has(row.Correctness)
+                );
+                if (selectedRows.length === 0) {
+                    alert("選択された行がありません。");
+                    return;
+                }
+                // 配列を最大max_test_countまでにしてシャッフル
+                outputRows = shuffleArray(selectedRows.slice(0, max_test_count));
+            } else if (priorIds.length >= max_test_count) { // priorIdsだけでmax_test_count越えている場合はこの中でテストを作る
+                outputRows = shuffleArray(rows.filter(row => priorIds.slice(0, max_test_count).includes(row.Idx)))
+            } else { // priorIds＋selected
+                const priorRows = rows.filter(row => priorIds.slice(0, max_test_count).includes(row.Idx));
+                const selectedRows = rows.filter(row => 
+                    option1Selected.has(row.Option1) && option2Selected.has(row.Option2) && optionCrctValueSelected.has(row.Correctness) && !priorIds.includes(row.Idx)
+                ).slice(0, max_test_count - priorIds.length);
+                outputRows = shuffleArray(selectedRows.concat(priorRows));
+            }
+            console.log("取得したrow 14行:", outputRows)
+            
             let index = outputRows.map(row => row.Idx);
             let sentences = outputRows.map(row => row.Sentence);
             let answers = outputRows.map(row => row.Answer);
@@ -249,7 +327,11 @@
                     answers.push("");
                 }
             }
+            // 新しいウィンドウに渡すパラメータ
+            const params = new URLSearchParams();
             // エンコード
+            const answersIncluded = includeAnswers.checked;
+            params.set('includeAnswers', answersIncluded);
             const encodedIndexData = encodeURIComponent(JSON.stringify(index));
             params.set('index', encodedIndexData);
             const encodedSentenceData = encodeURIComponent(JSON.stringify(sentences));
